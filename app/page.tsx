@@ -113,7 +113,7 @@ export default function CameraApp() {
     const formData = new FormData();
     formData.append("file", image);
     try {
-      const response = await axios.post("http://127.0.0.1:8000/upload", formData);
+      const response = await axios.post("https://clearbyte-backend-render.onrender.com/upload", formData);
       setResult(response.data);
       setResultVisible(true);
     } catch (error) {
