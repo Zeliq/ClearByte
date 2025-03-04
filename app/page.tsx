@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff, CheckCircle, XCircle, X, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff, CheckCircle, XCircle, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import axios from "axios";
 import Image from "next/image";
 
@@ -22,6 +22,7 @@ export default function CameraApp() {
   const [isMobile, setIsMobile] = useState(false);
   const [expandedText, setExpandedText] = useState(false);
   const [networkError, setNetworkError] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -167,6 +168,60 @@ export default function CameraApp() {
           </button>
         </div>
       )}
+
+      {showInstructions && (
+        <div 
+          className="absolute inset-0 flex flex-col items-center justify-center z-30"
+          style={{
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(10px)"
+          }}
+        >
+          <div className="max-w-md p-6 bg-gray-900 rounded-xl border border-gray-700 mx-4">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-white mb-4">How to Use</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 mt-1">
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-100 mb-1">Instructions</h3>
+                    <p className="text-gray-400 leading-relaxed">
+                      Take a clear picture of the ingredients list using the camera, 
+                      or upload an existing image from your device. Submit the image 
+                      to get the classification results.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 mt-1">
+                    <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-100 mb-1">Disclaimer</h3>
+                    <p className="text-gray-400 leading-relaxed">
+                      Accuracy may vary. This system cannot guarantee detection of 
+                      cross-contamination or verify slaughter methods. Results 
+                      should be verified independently.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowInstructions(false)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
+            >
+              <span>Got It</span>
+              <Check className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
       
       <div 
         className={`relative overflow-hidden bg-[#111111] ${isMobile ? 'w-full h-screen' : 'w-[375px] h-[750px]'} shadow-2xl`}
@@ -175,6 +230,7 @@ export default function CameraApp() {
           boxShadow: isMobile ? 'none' : '0 0 40px rgba(0, 0, 0, 0.6), 0 0 100px rgba(0, 0, 0, 0.4)'
         }}
       >
+        {/* Rest of the existing camera app UI remains unchanged below */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {cameraPermission && (
             <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover" />
