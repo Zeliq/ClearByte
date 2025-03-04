@@ -13,7 +13,7 @@ interface AnalysisResult {
 export default function CameraApp() {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [cameraFacing, setCameraFacing] = useState("user");
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
   const [flash, setFlash] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,6 +23,7 @@ export default function CameraApp() {
   const [expandedText, setExpandedText] = useState(false);
   const [networkError, setNetworkError] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [focusPoint, setFocusPoint] = useState<{x: number; y: number} | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -30,9 +31,11 @@ export default function CameraApp() {
   const checkCameraPermission = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: cameraFacing },
+        video: { 
+          facingMode: cameraFacing,
+          focusMode: { ideal: "continuous" }
+        }
       });
-      
       if (stream) {
         setCameraPermission(true);
         if (videoRef.current) {
@@ -46,31 +49,51 @@ export default function CameraApp() {
     }
   }, [cameraFacing]);
 
+  const handleVideoClick = (e: React.MouseEvent<HTMLVideoElement>) => {
+    const video = videoRef.current;
+    if (!video || !video.srcObject) return;
+    const stream = video.srcObject as MediaStream;
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+    const rect = video.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setFocusPoint({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    setTimeout(() => setFocusPoint(null), 1000);
+    try {
+      const capabilities = track.getCapabilities();
+      if (capabilities.focusMode && capabilities.focusMode.includes("manual")) {
+        track.applyConstraints({
+          advanced: [{ focusMode: "manual", pointsOfInterest: [{ x, y }] } as any
+        ]}).catch(console.error);
+      }
+    } catch (error) {
+      console.error("Error applying focus:", error);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
-    
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-    };
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   useEffect(() => {
-    if (isMounted && !showInstructions) {
-      checkCameraPermission();
-    }
+    if (isMounted && !showInstructions) checkCameraPermission();
   }, [isMounted, showInstructions, checkCameraPermission]);
 
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: cameraFacing },
+        video: { 
+          facingMode: cameraFacing,
+          focusMode: { ideal: "continuous" }
+        }
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -92,14 +115,11 @@ export default function CameraApp() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
     canvas.toBlob((blob) => {
       if (blob) {
         const capturedImage = new File([blob], "camera-capture.jpg", {
@@ -126,10 +146,9 @@ export default function CameraApp() {
     setNetworkError(false);
     const formData = new FormData();
     formData.append("file", image);
-    
     try {
       const response = await axios.post(
-        "https://clearbyte-backend-render.onrender.com/upload",
+        "http://127.0.0.1:8000/upload",
         formData,
         {
           headers: {
@@ -144,7 +163,6 @@ export default function CameraApp() {
       console.error("Upload failed", error);
       setNetworkError(true);
       let errorMessage = "An error occurred while processing your request";
-      
       if (axios.isAxiosError(error)) {
         if (error.response) {
           errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || 'Unknown error'}`;
@@ -185,7 +203,6 @@ export default function CameraApp() {
           <div className="max-w-md p-6 bg-gray-900 rounded-xl border border-gray-700 mx-4">
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-white mb-4">How to Use</h2>
-              
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 mt-1">
@@ -200,7 +217,6 @@ export default function CameraApp() {
                     </p>
                   </div>
                 </div>
-
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 mt-1">
                     <AlertTriangle className="w-5 h-5 text-yellow-400" />
@@ -216,7 +232,6 @@ export default function CameraApp() {
                 </div>
               </div>
             </div>
-
             <button
               onClick={() => setShowInstructions(false)}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
@@ -237,7 +252,26 @@ export default function CameraApp() {
       >
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {cameraPermission && (
-            <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover" />
+            <>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="absolute w-full h-full object-cover cursor-pointer"
+                onClick={handleVideoClick}
+              />
+              {focusPoint && (
+                <div
+                  className="absolute w-20 h-20 border-2 border-white rounded-full opacity-70"
+                  style={{
+                    left: focusPoint.x - 40,
+                    top: focusPoint.y - 40,
+                    animation: 'pulse 1s ease-out forwards',
+                    pointerEvents: 'none'
+                  }}
+                />
+              )}
+            </>
           )}
           {cameraPermission === false && (
             <div 
@@ -445,6 +479,14 @@ export default function CameraApp() {
           <p>Use this camera interface to capture and analyze images</p>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes pulse {
+          0% { transform: scale(0.8); opacity: 0.7; }
+          50% { transform: scale(1.2); opacity: 0.4; }
+          100% { transform: scale(1.5); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }
