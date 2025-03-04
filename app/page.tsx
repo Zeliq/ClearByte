@@ -1,5 +1,19 @@
 "use client";
 
+declare global {
+  interface MediaTrackConstraints {
+    focusMode?: ConstrainDOMString;
+    pointsOfInterest?: { x: number; y: number }[];
+  }
+  interface MediaTrackCapabilities {
+    focusMode?: string[];
+  }
+  interface MediaTrackConstraintSet {
+    focusMode?: ConstrainDOMString;
+    pointsOfInterest?: { x: number; y: number }[];
+  }
+}
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff, CheckCircle, XCircle, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import axios from "axios";
@@ -67,7 +81,7 @@ export default function CameraApp() {
       const capabilities = track.getCapabilities();
       if (capabilities.focusMode && capabilities.focusMode.includes("manual")) {
         track.applyConstraints({
-          advanced: [{ focusMode: "manual", pointsOfInterest: [{ x, y }] } as any
+          advanced: [{ focusMode: "manual", pointsOfInterest: [{ x, y }] }
         ]}).catch(console.error);
       }
     } catch (error) {
@@ -148,7 +162,7 @@ export default function CameraApp() {
     formData.append("file", image);
     try {
       const response = await axios.post(
-        "https://clearbyte-backend-render.onrender.com/upload",
+        "http://127.0.0.1:8000/upload",
         formData,
         {
           headers: {
