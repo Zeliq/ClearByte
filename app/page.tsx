@@ -250,7 +250,7 @@ export default function CameraApp() {
 
         {cameraPermission && (
           <div
-            className="absolute bottom-14 flex items-center justify-between w-[340px] h-[100px] p-4 rounded-full shadow-lg mx-auto left-0 right-0 z-10"
+            className="absolute bottom-6 flex items-center justify-between w-[340px] h-[100px] p-4 rounded-full shadow-lg mx-auto left-0 right-0 z-10"
             style={{
               background: "rgba(255, 255, 255, 0.2)",
               backdropFilter: "blur(14px)",
