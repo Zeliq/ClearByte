@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { RefreshCcw, Zap, Check, Image, Camera, CameraOff } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff } from "lucide-react";
 import axios from "axios";
+import Image from "next/image";
 
 export default function CameraApp() {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState("user");
   const [flash, setFlash] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [resultVisible, setResultVisible] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
@@ -18,26 +19,7 @@ export default function CameraApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Only run client-side code after component is mounted
-  useEffect(() => {
-    setIsMounted(true);
-    checkCameraPermission();
-    
-    // Check if device is mobile
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-    };
-  }, []);
-
-  // Check camera permission
-  const checkCameraPermission = async () => {
+  const checkCameraPermission = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: cameraFacing },
@@ -54,16 +36,25 @@ export default function CameraApp() {
       console.error("Error accessing camera", err);
       setCameraPermission(false);
     }
-  };
+  }, [cameraFacing]);
 
-  // Start camera only after component is mounted and when cameraFacing changes
   useEffect(() => {
-    if (isMounted && cameraPermission) {
-      startCamera();
-    }
-  }, [cameraFacing, isMounted, cameraPermission]);
+    setIsMounted(true);
+    checkCameraPermission();
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, [checkCameraPermission]);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: cameraFacing },
@@ -76,7 +67,13 @@ export default function CameraApp() {
       console.error("Error accessing camera", err);
       setCameraPermission(false);
     }
-  };
+  }, [cameraFacing]);
+
+  useEffect(() => {
+    if (isMounted && cameraPermission) {
+      startCamera();
+    }
+  }, [cameraFacing, isMounted, cameraPermission, startCamera]);
 
   const captureImage = () => {
     const video = videoRef.current;
@@ -128,7 +125,6 @@ export default function CameraApp() {
 
   return (
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-910">
-      {/* Main Container - Phone-like layout on desktop */}
       <div 
         className={`relative overflow-hidden bg-[#111111] ${isMobile ? 'w-full h-screen' : 'w-[375px] h-[750px]'} shadow-2xl`}
         style={{
@@ -136,7 +132,6 @@ export default function CameraApp() {
           boxShadow: isMobile ? 'none' : '0 0 40px rgba(0, 0, 0, 0.6), 0 0 100px rgba(0, 0, 0, 0.4)'
         }}
       >
-        {/* Video Feed */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {cameraPermission && (
             <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover" />
@@ -165,7 +160,6 @@ export default function CameraApp() {
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Top Logo Area with Gradient */}
         <div 
           className="absolute top-0 left-0 right-0 h-24 flex items-center justify-center"
           style={{
@@ -173,18 +167,18 @@ export default function CameraApp() {
             zIndex: 10
           }}
         >
-          {/* Logo placeholder - replace src with your actual logo path */}
-          <img 
+          <Image 
             src="/ClearByte.png" 
-            alt="ClearByte Logo" 
-            className="h-6.5" 
+            alt="ClearByte Logo"
+            width={100}
+            height={40}
+            className="h-6.5"
+            unoptimized
           />
         </div>
 
-        {/* Top Controls */}
         {cameraPermission && (
           <div className="absolute top-6 flex justify-between w-full px-6 z-10">
-            {/* Flash Button */}
             <button
               onClick={() => setFlash(!flash)}
               style={{
@@ -197,7 +191,6 @@ export default function CameraApp() {
               <Zap className={`w-7 h-7 ${flash ? "text-yellow-500" : "text-white"}`} />
             </button>
 
-            {/* Switch Camera */}
             <button
               onClick={() => setCameraFacing(cameraFacing === "user" ? "environment" : "user")}
               style={{
@@ -212,7 +205,6 @@ export default function CameraApp() {
           </div>
         )}
 
-        {/* Glassmorphic Controls */}
         {cameraPermission && (
           <div
             className="absolute bottom-6 flex items-center justify-between w-[340px] h-[100px] p-4 rounded-full shadow-lg mx-auto left-0 right-0 z-10"
@@ -222,7 +214,6 @@ export default function CameraApp() {
               border: "1px solid rgba(255, 255, 255, 0.3)",
             }}
           >
-            {/* Image Upload Button */}
             <div className="relative w-16 h-16 rounded-full flex items-center justify-center bg-white bg-opacity-30 shadow-md overflow-hidden cursor-pointer">
               <input
                 type="file"
@@ -231,18 +222,23 @@ export default function CameraApp() {
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
               {imagePreview ? (
-                <img src={imagePreview} alt="Captured" className="w-full h-full object-cover rounded-full" />
+                <Image 
+                  src={imagePreview}
+                  alt="Captured preview"
+                  width={64}
+                  height={64}
+                  className="w-full h-full object-cover rounded-full"
+                  unoptimized
+                />
               ) : (
-                <Image className="w-8 h-8 text-gray-400" />
+                <ImageIcon className="w-8 h-8 text-gray-400" />
               )}
             </div>
 
-            {/* Shutter Button */}
             <button onClick={captureImage} className="relative flex items-center justify-center w-18 h-18 rounded-full border-[4px] border-white bg-white shadow-lg">
               <div className="absolute w-[99%] h-[99%] bg-white rounded-full border-[2px] border-gray-400"></div>
             </button>
 
-            {/* Submit Button */}
             <button
               onClick={submitImage}
               style={{
@@ -258,7 +254,6 @@ export default function CameraApp() {
           </div>
         )}
 
-        {/* Sliding Result Panel */}
         {resultVisible && (
           <div
             className="absolute bottom-0 w-full bg-white bg-opacity-80 backdrop-blur-lg rounded-t-3xl p-6 shadow-lg transition-transform duration-300 transform translate-y-0 z-20"
@@ -273,7 +268,6 @@ export default function CameraApp() {
         )}
       </div>
       
-      {/* Desktop-only instructions */}
       {!isMobile && (
         <div className="fixed bottom-6 text-gray-400 text-center max-w-md px-4">
           <p>Use this camera interface to capture and analyze images</p>
