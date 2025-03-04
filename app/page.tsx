@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff } from "lucide-react";
+import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff, CheckCircle, XCircle, X, ChevronDown, ChevronUp } from "lucide-react";
 import axios from "axios";
 import Image from "next/image";
 
@@ -15,6 +15,8 @@ export default function CameraApp() {
   const [resultVisible, setResultVisible] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedText, setExpandedText] = useState(false);
+  const [networkError, setNetworkError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -110,14 +112,38 @@ export default function CameraApp() {
     if (!image) return;
     setLoading(true);
     setResultVisible(false);
+    setNetworkError(false);
     const formData = new FormData();
     formData.append("file", image);
+    
     try {
-      const response = await axios.post("https://clearbyte-backend-render.onrender.com/upload", formData);
+      const response = await axios.post(
+        "https://clearbyte-backend-render.onrender.com/upload",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 30000,
+        }
+      );
       setResult(response.data);
       setResultVisible(true);
     } catch (error) {
       console.error("Upload failed", error);
+      setNetworkError(true);
+      let errorMessage = "An error occurred while processing your request";
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || 'Unknown error'}`;
+        } else if (error.request) {
+          errorMessage = "No response from server. Please check your internet connection";
+        } else {
+          errorMessage = `Request error: ${error.message}`;
+        }
+      }
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -125,6 +151,18 @@ export default function CameraApp() {
 
   return (
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-910">
+      {networkError && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center z-50">
+          <span className="block sm:inline">Network error occurred. Please check your connection.</span>
+          <button 
+            onClick={() => setNetworkError(false)}
+            className="ml-4 text-red-700 hover:text-red-900"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      
       <div 
         className={`relative overflow-hidden bg-[#111111] ${isMobile ? 'w-full h-screen' : 'w-[375px] h-[750px]'} shadow-2xl`}
         style={{
@@ -246,23 +284,92 @@ export default function CameraApp() {
                 backdropFilter: "blur(10px)",
                 border: "1px solid rgba(255, 255, 255, 0.3)",
               }}
-              className="p-3 rounded-full shadow-md"
+              className="p-3 rounded-full shadow-md relative"
               disabled={loading || !image}
             >
-              <Check className={`w-8 h-8 ${loading ? "text-gray-400" : "text-white"}`} />
+              {loading ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                </div>
+              ) : (
+                <Check className={`w-8 h-8 ${loading ? "text-gray-400" : "text-white"}`} />
+              )}
             </button>
           </div>
         )}
 
         {resultVisible && (
           <div
-            className="absolute bottom-0 w-full bg-white bg-opacity-80 backdrop-blur-lg rounded-t-3xl p-6 shadow-lg transition-transform duration-300 transform translate-y-0 z-20"
+            className="absolute bottom-0 w-full bg-white/80 backdrop-blur-lg rounded-t-3xl p-6 shadow-lg transition-transform duration-300 transform translate-y-0 z-20"
             style={{ transform: resultVisible ? 'translateY(0)' : 'translateY(100%)' }}
           >
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">Analysis Result</h2>
-            <pre className="text-gray-600 whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
-            <button onClick={() => setResultVisible(false)} className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg w-full">
-              Close
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Analysis Results</h2>
+              <button 
+                onClick={() => setResultVisible(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {(result as any)?.text && (
+                <div className="bg-white p-4 rounded-xl shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-gray-600 text-sm mb-2">Extracted Text</p>
+                      <p className="text-gray-800 whitespace-pre-wrap">
+                        {expandedText 
+                          ? (result as any).text 
+                          : ((result as any).text.length > 150
+                            ? `${(result as any).text.substring(0, 150).replace(/\r?\n/g, ' ')}...`
+                            : (result as any).text)}
+                      </p>
+                    </div>
+                    {(result as any).text.length > 150 && (
+                      <button 
+                        onClick={() => setExpandedText(!expandedText)}
+                        className="ml-4 text-blue-600 hover:text-blue-700"
+                      >
+                        {expandedText ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(result as any)?.classification && (
+                <div className="bg-white p-4 rounded-xl shadow-sm">
+                  <p className="text-gray-600 text-sm mb-3">Food Classification</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries((result as any).classification).map(([className, isValid]) => (
+                      <div 
+                        key={className}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <span className="font-medium text-gray-700 capitalize">
+                          {className}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          {(isValid as boolean) ? (
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setResultVisible(false)}
+              className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors font-medium"
+            >
+              Close Results
             </button>
           </div>
         )}
