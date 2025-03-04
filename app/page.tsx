@@ -48,7 +48,6 @@ export default function CameraApp() {
 
   useEffect(() => {
     setIsMounted(true);
-    checkCameraPermission();
     
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -60,7 +59,13 @@ export default function CameraApp() {
     return () => {
       window.removeEventListener('resize', checkMobile);
     };
-  }, [checkCameraPermission]);
+  }, []);
+
+  useEffect(() => {
+    if (isMounted && !showInstructions) {
+      checkCameraPermission();
+    }
+  }, [isMounted, showInstructions, checkCameraPermission]);
 
   const startCamera = useCallback(async () => {
     try {
@@ -78,10 +83,10 @@ export default function CameraApp() {
   }, [cameraFacing]);
 
   useEffect(() => {
-    if (isMounted && cameraPermission) {
+    if (isMounted && cameraPermission && !showInstructions) {
       startCamera();
     }
-  }, [cameraFacing, isMounted, cameraPermission, startCamera]);
+  }, [cameraFacing, isMounted, cameraPermission, startCamera, showInstructions]);
 
   const captureImage = () => {
     const video = videoRef.current;
@@ -230,7 +235,6 @@ export default function CameraApp() {
           boxShadow: isMobile ? 'none' : '0 0 40px rgba(0, 0, 0, 0.6), 0 0 100px rgba(0, 0, 0, 0.4)'
         }}
       >
-        {/* Rest of the existing camera app UI remains unchanged below */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {cameraPermission && (
             <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover" />
