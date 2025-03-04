@@ -5,12 +5,17 @@ import { RefreshCcw, Zap, Check, Image as ImageIcon, CameraOff, CheckCircle, XCi
 import axios from "axios";
 import Image from "next/image";
 
+interface AnalysisResult {
+  text?: string;
+  classification?: Record<string, boolean>;
+}
+
 export default function CameraApp() {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState("user");
   const [flash, setFlash] = useState(false);
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [resultVisible, setResultVisible] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
@@ -127,7 +132,7 @@ export default function CameraApp() {
           timeout: 30000,
         }
       );
-      setResult(response.data);
+      setResult(response.data as AnalysisResult);
       setResultVisible(true);
     } catch (error) {
       console.error("Upload failed", error);
@@ -314,20 +319,20 @@ export default function CameraApp() {
             </div>
 
             <div className="space-y-4">
-              {(result as any)?.text && (
+              {result?.text && (
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-gray-600 text-sm mb-2">Extracted Text</p>
                       <p className="text-gray-800 whitespace-pre-wrap">
                         {expandedText 
-                          ? (result as any).text 
-                          : ((result as any).text.length > 150
-                            ? `${(result as any).text.substring(0, 150).replace(/\r?\n/g, ' ')}...`
-                            : (result as any).text)}
+                          ? result.text 
+                          : (result.text.length > 150
+                            ? `${result.text.substring(0, 150).replace(/\r?\n/g, ' ')}...`
+                            : result.text)}
                       </p>
                     </div>
-                    {(result as any).text.length > 150 && (
+                    {result.text.length > 150 && (
                       <button 
                         onClick={() => setExpandedText(!expandedText)}
                         className="ml-4 text-blue-600 hover:text-blue-700"
@@ -339,11 +344,11 @@ export default function CameraApp() {
                 </div>
               )}
 
-              {(result as any)?.classification && (
+              {result?.classification && (
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                   <p className="text-gray-600 text-sm mb-3">Food Classification</p>
                   <div className="grid grid-cols-2 gap-3">
-                    {Object.entries((result as any).classification).map(([className, isValid]) => (
+                    {Object.entries(result.classification).map(([className, isValid]) => (
                       <div 
                         key={className}
                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -352,7 +357,7 @@ export default function CameraApp() {
                           {className}
                         </span>
                         <div className="flex items-center space-x-2">
-                          {(isValid as boolean) ? (
+                          {isValid ? (
                             <CheckCircle className="w-5 h-5 text-green-500" />
                           ) : (
                             <XCircle className="w-5 h-5 text-red-500" />
